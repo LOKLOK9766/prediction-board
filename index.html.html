@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>哥之预测 VS 弟之预测</title>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    :root {
+      --bg: #061a34;
+      --deep: #031027;
+      --line: #16e6ff;
+      --gold: #ffb31a;
+      --green1: #0a9f55;
+      --green2: #087944;
+      --blue1: #036bd3;
+      --blue2: #003c87;
+      --red1: #e01949;
+      --red2: #94112d;
+      --gray1: #34404a;
+      --gray2: #17212a;
+      --white: #f7fbff;
+      --muted: #a7bfd5;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top, #0b315c 0, #051836 42%, #020817 100%);
+      color: var(--white);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", Arial, sans-serif;
+    }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      background: rgba(2, 8, 20, .88);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(255,255,255,.12);
+    }
+
+    .toolbar button, .toolbar label {
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 10px;
+      background: linear-gradient(#126ac4, #063b85);
+      color: white;
+      padding: 10px 14px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 3px 10px rgba(0,0,0,.25);
+    }
+    .toolbar button.danger { background: linear-gradient(#d73352, #842338); }
+    .toolbar button.gold { background: linear-gradient(#e9a821, #97670c); }
+    .toolbar small { color: #c5d6e8; width: 100%; text-align: center; }
+    #importFile { display: none; }
+
+    .wrap {
+      width: 100%;
+      overflow-x: auto;
+      padding: 18px 8px 36px;
+    }
+
+    #board {
+      width: 1040px;
+      min-height: 520px;
+      margin: 0 auto;
+      padding: 10px 12px 12px;
+      border: 2px solid var(--gold);
+      border-radius: 6px;
+      background:
+        linear-gradient(180deg, rgba(2,15,36,.96), rgba(4,26,55,.98));
+      box-shadow: 0 20px 45px rgba(0,0,0,.35);
+    }
+
+    .title {
+      position: relative;
+      height: 92px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gold);
+      font-size: 36px;
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-shadow: 0 3px 0 #5b3200, 0 0 16px rgba(255,179,26,.25);
+      overflow: hidden;
+    }
+    .title::before, .title::after {
+      content: "";
+      position: absolute;
+      width: 210px;
+      height: 16px;
+      top: 32px;
+      background: repeating-linear-gradient(90deg, #0053a9 0 13px, transparent 13px 20px);
+      transform: skewX(-30deg);
+      opacity: .8;
+      filter: drop-shadow(0 0 8px #0086ff);
+    }
+    .title::before { left: 78px; }
+    .title::after { right: 78px; }
+
+    .head, .match-row {
+      display: grid;
+      grid-template-columns: 218px 1fr 218px;
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .head > div {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #3bbdff;
+      border-radius: 5px;
+      font-weight: 900;
+      font-size: 18px;
+      text-shadow: 0 2px 2px rgba(0,0,0,.8);
+      box-shadow: inset 0 1px 8px rgba(255,255,255,.15);
+    }
+    .head .left, .head .right { background: linear-gradient(var(--blue1), var(--blue2)); }
+    .head .center { background: linear-gradient(#16bf69, #078143); }
+
+    #rows {
+      position: relative;
+      margin-top: 8px;
+      padding-bottom: 8px;
+    }
+    #rows::before {
+      content: "";
+      position: absolute;
+      left: 334px;
+      right: 334px;
+      top: -8px;
+      bottom: 0;
+      opacity: .65;
+      pointer-events: none;
+      background-image:
+        linear-gradient(var(--line), var(--line)),
+        repeating-linear-gradient(90deg, transparent 0 31px, var(--line) 31px 33px, transparent 33px 64px);
+      background-size: 100% 1px, 100% 100%;
+      background-position: left top, left top;
+      background-repeat: no-repeat, repeat;
+    }
+
+    .match-row {
+      position: relative;
+      margin: 5px 0;
+      min-height: 44px;
+    }
+
+    .pred-cell, .result-cell {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      border: 1px solid rgba(59,189,255,.9);
+      border-radius: 5px;
+      overflow: hidden;
+      box-shadow: inset 0 1px 9px rgba(255,255,255,.14), 0 2px 3px rgba(0,0,0,.2);
+    }
+
+    .pred-cell {
+      position: relative;
+      justify-content: center;
+      padding: 4px 38px 4px 8px;
+      background: linear-gradient(var(--gray1), var(--gray2));
+    }
+    .pred-cell.correct { background: linear-gradient(var(--blue1), var(--blue2)); }
+    .pred-cell.wrong { background: linear-gradient(var(--red1), var(--red2)); }
+    .pred-cell.none { background: linear-gradient(var(--gray1), var(--gray2)); }
+    .pred-cell.pending { background: linear-gradient(#705329, #493210); }
+
+    .pred-select {
+      width: 100%;
+      min-width: 0;
+      background: transparent;
+      border: 0;
+      color: white;
+      font-size: 17px;
+      font-weight: 900;
+      text-align: center;
+      text-align-last: center;
+      outline: none;
+      cursor: pointer;
+      appearance: auto;
+      text-shadow: 0 2px 2px rgba(0,0,0,.85);
+    }
+    .pred-select option { color: #111; background: #fff; }
+    .pred-label {
+      width: 100%;
+      text-align: center;
+      font-size: 17px;
+      font-weight: 900;
+      text-shadow: 0 2px 2px rgba(0,0,0,.85);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mark {
+      position: absolute;
+      right: 12px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 900;
+      box-shadow: inset 0 0 7px rgba(255,255,255,.25);
+    }
+    .correct .mark { background: #1ed36c; }
+    .wrong .mark { background: #e53b57; }
+    .none .mark { background: #6b7782; }
+    .pending .mark { background: #b47a15; }
+
+    .result-cell {
+      position: relative;
+      justify-content: center;
+      gap: 6px;
+      padding: 4px 8px;
+      background: linear-gradient(var(--green1), var(--green2));
+      color: white;
+      font-size: 18px;
+      font-weight: 900;
+      text-shadow: 0 2px 2px rgba(0,0,0,.85);
+    }
+    .idx {
+      flex: 0 0 auto;
+      width: 27px;
+      height: 27px;
+      border-radius: 50%;
+      background: #ffe51e;
+      color: #07754a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 1000;
+      text-shadow: none;
+      box-shadow: 0 0 0 2px rgba(255,255,255,.2);
+    }
+    .teamBox {
+      flex: 1 1 0;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+    }
+    .teamBox.away { justify-content: flex-end; }
+    .flag {
+      flex: 0 0 auto;
+      min-width: 30px;
+      font-size: 22px;
+      line-height: 1;
+      text-align: center;
+      filter: drop-shadow(0 2px 1px rgba(0,0,0,.45));
+    }
+    .team-input {
+      min-width: 0;
+      width: 100%;
+      height: 30px;
+      border: 0;
+      border-bottom: 1px dashed rgba(255,255,255,.38);
+      background: transparent;
+      color: white;
+      font-size: 16px;
+      font-weight: 900;
+      text-shadow: 0 2px 2px rgba(0,0,0,.85);
+      outline: none;
+    }
+    .teamBox.away .team-input { text-align: right; }
+    .scoreBox {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 20px;
+      font-weight: 1000;
+    }
+    .score-input {
+      width: 42px;
+      height: 30px;
+      border: 1px solid rgba(255,255,255,.22);
+      border-radius: 6px;
+      background: rgba(0,0,0,.18);
+      color: white;
+      font-size: 18px;
+      font-weight: 1000;
+      text-align: center;
+      outline: none;
+      text-shadow: 0 2px 2px rgba(0,0,0,.85);
+    }
+    .score-input::-webkit-inner-spin-button,
+    .score-input::-webkit-outer-spin-button { opacity: .4; }
+    .scoreText, .teamText { white-space: nowrap; }
+    .scoreText { font-size: 21px; min-width: 54px; text-align: center; }
+    .teamText {
+      min-width: 74px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .teamBox.away .teamText { text-align: right; }
+
+    .row-tools {
+      position: absolute;
+      top: 50%;
+      right: -45px;
+      transform: translateY(-50%);
+      display: flex;
+      gap: 4px;
+    }
+    .row-tools button {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.35);
+      background: rgba(0,0,0,.25);
+      color: white;
+      cursor: pointer;
+      font-weight: 900;
+    }
+
+    .summary {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      min-height: 116px;
+      margin: 10px 10px 0;
+      border: 2px solid var(--gold);
+      border-radius: 8px;
+      background: rgba(2,18,42,.88);
+      overflow: visible;
+    }
+    .summary::before {
+      content: "★";
+      position: absolute;
+      left: 50%;
+      top: -24px;
+      transform: translateX(-50%);
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--gold);
+      color: #925e00;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 900;
+      box-shadow: 0 0 0 2px rgba(255,255,255,.25);
+      z-index: 2;
+    }
+    .summary::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--gold);
+      transform: translateX(-50%);
+    }
+    .sumBox {
+      padding: 28px 34px 18px;
+      font-weight: 900;
+      line-height: 1.85;
+      text-shadow: 0 2px 2px rgba(0,0,0,.85);
+    }
+    .sumBox.right { padding-left: 58px; }
+    .rate { font-size: 18px; }
+    .rate .num { color: #ff4d64; }
+    .rate .pct { color: #49d2ff; }
+    .detail { font-size: 15px; color: #ffffff; }
+
+    .viewOnly { display: none; }
+    body.preview .editOnly, body.exporting .editOnly { display: none !important; }
+    body.preview .viewOnly, body.exporting .viewOnly { display: inline-flex !important; }
+    body.preview .pred-label, body.exporting .pred-label { display: block !important; }
+    body.preview .row-tools, body.exporting .row-tools { display: none !important; }
+    body.exporting .toolbar { display: none !important; }
+    body.exporting .wrap { padding: 0; overflow: visible; }
+    body.exporting #board { box-shadow: none; margin: 0; }
+
+    .help {
+      max-width: 1040px;
+      margin: 10px auto 0;
+      color: #c9daee;
+      font-size: 13px;
+      line-height: 1.6;
+      padding: 0 6px;
+    }
+    .help b { color: #fff; }
+
+    @media (max-width: 1100px) {
+      .wrap { padding-left: 0; padding-right: 0; }
+      #board { margin-left: 8px; margin-right: 8px; }
+      .row-tools { right: -38px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button id="addRowBtn">＋ 新增比赛</button>
+    <button id="previewBtn">预览模式</button>
+    <button id="exportPngBtn" class="gold">导出PNG长图</button>
+    <button id="exportJsonBtn">备份数据JSON</button>
+    <label for="importFile">导入JSON</label>
+    <input id="importFile" type="file" accept="application/json,.json" />
+    <button id="clearBtn" class="danger">清空全部</button>
+    <small>用法：输入两个国家、比分，再选择“哥/弟”的预测。正确率会自动更新；国家名能识别时国旗会自动出现；新增比赛会自动向下拉长。</small>
+  </div>
+
+  <div class="wrap">
+    <div id="board">
+      <div class="title">哥之预测&nbsp;&nbsp;VS&nbsp;&nbsp;弟之预测</div>
+      <div class="head">
+        <div class="left">哥之预测</div>
+        <div class="center">比赛结果</div>
+        <div class="right">弟之预测</div>
+      </div>
+      <div id="rows"></div>
+      <div class="summary">
+        <div class="sumBox left">
+          <div class="rate">哥之正确率： <span id="broRate" class="num">0 / 0</span> <span id="broPct" class="pct">(0.0%)</span></div>
+          <div class="detail">预测正确：<span id="broCorrect">0</span> 场 | 预测错误：<span id="broWrong">0</span> 场</div>
+          <div class="detail">未计入：<span id="broNone">0</span> 场</div>
+        </div>
+        <div class="sumBox right">
+          <div class="rate">弟之正确率： <span id="diRate" class="num">0 / 0</span> <span id="diPct" class="pct">(0.0%)</span></div>
+          <div class="detail">预测正确：<span id="diCorrect">0</span> 场 | 预测错误：<span id="diWrong">0</span> 场</div>
+          <div class="detail">未计入：<span id="diNone">0</span> 场</div>
+        </div>
+      </div>
+    </div>
+    <div class="help">
+      <b>提示：</b>“正确率”的分母只计算“已填写比分且已做预测”的场次；“未做预测”或比分没填的场次不计入正确率。导出的PNG会按当前表格高度生成长图。
+    </div>
+  </div>
+
+<script>
+(() => {
+  const STORAGE_KEY = 'prediction-board-v1';
+
+  const directFlags = {
+    '英格兰':'🏴', '苏格兰':'🏴', '威尔士':'🏴', '北爱尔兰':'🇬🇧',
+    '中国香港':'🇭🇰', '香港':'🇭🇰', '中国澳门':'🇲🇴', '澳门':'🇲🇴', '台湾':'🇹🇼',
+    '库拉索':'🇨🇼', '波多黎各':'🇵🇷', '法罗群岛':'🇫🇴', '科索沃':'🇽🇰',
+    '巴勒斯坦':'🇵🇸', '塔希提':'🇵🇫'
+  };
+
+  const countryCodes = {
+    '中国':'CN','中国队':'CN','国足':'CN','日本':'JP','韩国':'KR','朝鲜':'KP','蒙古':'MN',
+    '泰国':'TH','越南':'VN','新加坡':'SG','马来西亚':'MY','印度尼西亚':'ID','菲律宾':'PH','印度':'IN',
+    '沙特':'SA','沙特阿拉伯':'SA','伊朗':'IR','伊拉克':'IQ','卡塔尔':'QA','阿联酋':'AE','阿曼':'OM','科威特':'KW','巴林':'BH','约旦':'JO','叙利亚':'SY','黎巴嫩':'LB','以色列':'IL','乌兹别克斯坦':'UZ','澳大利亚':'AU','新西兰':'NZ',
+
+    '美国':'US','美國':'US','加拿大':'CA','墨西哥':'MX','巴拿马':'PA','哥斯达黎加':'CR','洪都拉斯':'HN','牙买加':'JM','海地':'HT','古巴':'CU','多米尼加':'DO',
+    '巴西':'BR','阿根廷':'AR','乌拉圭':'UY','巴拉圭':'PY','智利':'CL','秘鲁':'PE','哥伦比亚':'CO','厄瓜多尔':'EC','玻利维亚':'BO','委内瑞拉':'VE',
+
+    '法国':'FR','德国':'DE','西班牙':'ES','葡萄牙':'PT','意大利':'IT','荷兰':'NL','比利时':'BE','瑞士':'CH','奥地利':'AT','丹麦':'DK','瑞典':'SE','挪威':'NO','芬兰':'FI','冰岛':'IS','爱尔兰':'IE','捷克':'CZ','斯洛伐克':'SK','波兰':'PL','匈牙利':'HU','罗马尼亚':'RO','保加利亚':'BG','塞尔维亚':'RS','克罗地亚':'HR','斯洛文尼亚':'SI','波黑':'BA','波斯尼亚':'BA','波斯尼亚和黑塞哥维那':'BA','黑山':'ME','北马其顿':'MK','阿尔巴尼亚':'AL','希腊':'GR','土耳其':'TR','乌克兰':'UA','俄罗斯':'RU','白俄罗斯':'BY','格鲁吉亚':'GE','亚美尼亚':'AM','阿塞拜疆':'AZ','摩尔多瓦':'MD',
+
+    '摩洛哥':'MA','埃及':'EG','突尼斯':'TN','阿尔及利亚':'DZ','南非':'ZA','塞内加尔':'SN','喀麦隆':'CM','尼日利亚':'NG','加纳':'GH','科特迪瓦':'CI','象牙海岸':'CI','马里':'ML','布基纳法索':'BF','刚果':'CG','刚果共和国':'CG','刚果金':'CD','刚果民主共和国':'CD','民主刚果':'CD','安哥拉':'AO','赞比亚':'ZM','津巴布韦':'ZW','肯尼亚':'KE','坦桑尼亚':'TZ','埃塞俄比亚':'ET','佛得角':'CV','卡ーボベルデ':'CV',
+  };
+
+  const defaultRows = [
+    {home:'墨西哥', away:'南非', homeScore:2, awayScore:0, bro:'draw', di:'home'},
+    {home:'韩国', away:'捷克', homeScore:2, awayScore:1, bro:'draw', di:'away'},
+    {home:'加拿大', away:'波黑', homeScore:1, awayScore:1, bro:'home', di:'draw'},
+    {home:'美国', away:'巴拉圭', homeScore:4, awayScore:1, bro:'draw', di:'home'},
+    {home:'巴西', away:'摩洛哥', homeScore:1, awayScore:1, bro:'away', di:'home'}
+  ];
+
+  let rows = loadRows();
+  const rowsEl = document.getElementById('rows');
+
+  function normalizeName(name) {
+    return String(name || '')
+      .trim()
+      .replace(/\s+/g, '')
+      .replace(/[：:]/g, '')
+      .replace(/国家队$/g, '')
+      .replace(/队$/g, '');
+  }
+
+  function flagFromCode(code) {
+    if (!code || code.length !== 2) return '🏳️';
+    return code.toUpperCase().replace(/./g, ch => String.fromCodePoint(127397 + ch.charCodeAt(0)));
+  }
+
+  function getFlag(name) {
+    const n = normalizeName(name);
+    if (!n) return '🏳️';
+    if (directFlags[n]) return directFlags[n];
+    if (countryCodes[n]) return flagFromCode(countryCodes[n]);
+    return '🏳️';
+  }
+
+  function loadRows() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      if (Array.isArray(saved)) return saved;
+    } catch (e) {}
+    return defaultRows;
+  }
+
+  function saveRows() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+  }
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+
+  function getOutcome(row) {
+    const h = Number(row.homeScore);
+    const a = Number(row.awayScore);
+    if (!Number.isFinite(h) || !Number.isFinite(a) || row.homeScore === '' || row.awayScore === '') return null;
+    if (h > a) return 'home';
+    if (h < a) return 'away';
+    return 'draw';
+  }
+
+  function predictionText(row, pick) {
+    if (!pick || pick === 'none') return '未做预测';
+    if (pick === 'draw') return '平';
+    if (pick === 'home') return `${row.home || '主队'}胜`;
+    if (pick === 'away') return `${row.away || '客队'}胜`;
+    return '未做预测';
+  }
+
+  function scoreText(row) {
+    const h = row.homeScore;
+    const a = row.awayScore;
+    const home = row.home || '主队';
+    const away = row.away || '客队';
+    if (h === '' || h === undefined || a === '' || a === undefined) return `${home} - ${away}`;
+    return `${home} ${h}-${a} ${away}`;
+  }
+
+  function setRowField(index, field, value) {
+    rows[index][field] = value;
+    saveRows();
+    render();
+  }
+
+  function createPredCell(index, side) {
+    const row = rows[index];
+    const pick = row[side] || 'none';
+    const outcome = getOutcome(row);
+    let state = 'none';
+    let mark = '○';
+    if (pick !== 'none') {
+      if (!outcome) { state = 'pending'; mark = '?'; }
+      else if (pick === outcome) { state = 'correct'; mark = '✓'; }
+      else { state = 'wrong'; mark = '×'; }
+    }
+
+    const cell = document.createElement('div');
+    cell.className = `pred-cell ${state}`;
+
+    const label = document.createElement('div');
+    label.className = 'pred-label viewOnly';
+    label.textContent = predictionText(row, pick);
+
+    const select = document.createElement('select');
+    select.className = 'pred-select editOnly';
+    select.innerHTML = `
+      <option value="none">未做预测</option>
+      <option value="home"></option>
+      <option value="draw">平</option>
+      <option value="away"></option>
+    `;
+    select.value = pick;
+    select.options[1].textContent = `${row.home || '主队'}胜`;
+    select.options[3].textContent = `${row.away || '客队'}胜`;
+    select.addEventListener('change', e => setRowField(index, side, e.target.value));
+
+    const markEl = document.createElement('span');
+    markEl.className = 'mark';
+    markEl.textContent = mark;
+
+    cell.append(label, select, markEl);
+    return cell;
+  }
+
+  function createResultCell(index) {
+    const row = rows[index];
+    const cell = document.createElement('div');
+    cell.className = 'result-cell';
+
+    const idx = document.createElement('div');
+    idx.className = 'idx';
+    idx.textContent = pad2(index + 1);
+
+    const homeBox = document.createElement('div');
+    homeBox.className = 'teamBox home';
+    const homeFlag = document.createElement('span');
+    homeFlag.className = 'flag';
+    homeFlag.textContent = getFlag(row.home);
+    const homeInput = document.createElement('input');
+    homeInput.className = 'team-input editOnly';
+    homeInput.value = row.home || '';
+    homeInput.placeholder = '主队国家';
+    homeInput.addEventListener('input', e => {
+      rows[index].home = e.target.value;
+      saveRows();
+      updateDynamicLabels(index);
+    });
+    homeInput.addEventListener('blur', render);
+    const homeText = document.createElement('span');
+    homeText.className = 'teamText viewOnly';
+    homeText.textContent = row.home || '主队';
+    homeBox.append(homeFlag, homeInput, homeText);
+
+    const scoreBox = document.createElement('div');
+    scoreBox.className = 'scoreBox';
+    const hs = document.createElement('input');
+    hs.className = 'score-input editOnly';
+    hs.type = 'number';
+    hs.min = '0';
+    hs.max = '99';
+    hs.value = row.homeScore ?? '';
+    hs.placeholder = '0';
+    hs.addEventListener('input', e => setRowField(index, 'homeScore', e.target.value));
+    const dash = document.createElement('span');
+    dash.className = 'editOnly';
+    dash.textContent = '-';
+    const as = document.createElement('input');
+    as.className = 'score-input editOnly';
+    as.type = 'number';
+    as.min = '0';
+    as.max = '99';
+    as.value = row.awayScore ?? '';
+    as.placeholder = '0';
+    as.addEventListener('input', e => setRowField(index, 'awayScore', e.target.value));
+    const scoreView = document.createElement('span');
+    scoreView.className = 'scoreText viewOnly';
+    if (row.homeScore === '' || row.homeScore === undefined || row.awayScore === '' || row.awayScore === undefined) {
+      scoreView.textContent = '-';
+    } else {
+      scoreView.textContent = `${row.homeScore}-${row.awayScore}`;
+    }
+    scoreBox.append(hs, dash, as, scoreView);
+
+    const awayBox = document.createElement('div');
+    awayBox.className = 'teamBox away';
+    const awayText = document.createElement('span');
+    awayText.className = 'teamText viewOnly';
+    awayText.textContent = row.away || '客队';
+    const awayInput = document.createElement('input');
+    awayInput.className = 'team-input editOnly';
+    awayInput.value = row.away || '';
+    awayInput.placeholder = '客队国家';
+    awayInput.addEventListener('input', e => {
+      rows[index].away = e.target.value;
+      saveRows();
+      updateDynamicLabels(index);
+    });
+    awayInput.addEventListener('blur', render);
+    const awayFlag = document.createElement('span');
+    awayFlag.className = 'flag';
+    awayFlag.textContent = getFlag(row.away);
+    awayBox.append(awayText, awayInput, awayFlag);
+
+    cell.append(idx, homeBox, scoreBox, awayBox);
+    return cell;
+  }
+
+  function createRowTools(index) {
+    const tools = document.createElement('div');
+    tools.className = 'row-tools editOnly';
+
+    const up = document.createElement('button');
+    up.title = '上移';
+    up.textContent = '↑';
+    up.addEventListener('click', () => {
+      if (index <= 0) return;
+      [rows[index - 1], rows[index]] = [rows[index], rows[index - 1]];
+      saveRows();
+      render();
+    });
+
+    const del = document.createElement('button');
+    del.title = '删除';
+    del.textContent = '×';
+    del.addEventListener('click', () => {
+      rows.splice(index, 1);
+      saveRows();
+      render();
+    });
+
+    tools.append(up, del);
+    return tools;
+  }
+
+  function render() {
+    rowsEl.innerHTML = '';
+    rows.forEach((row, i) => {
+      const line = document.createElement('div');
+      line.className = 'match-row';
+      line.append(createPredCell(i, 'bro'), createResultCell(i), createPredCell(i, 'di'), createRowTools(i));
+      rowsEl.appendChild(line);
+    });
+    updateSummary();
+  }
+
+  function updateDynamicLabels(index) {
+    const line = rowsEl.children[index];
+    if (!line) return;
+    const row = rows[index];
+    const result = line.querySelector('.result-cell');
+    const flags = result.querySelectorAll('.flag');
+    if (flags[0]) flags[0].textContent = getFlag(row.home);
+    if (flags[1]) flags[1].textContent = getFlag(row.away);
+    const selects = line.querySelectorAll('.pred-select');
+    selects.forEach(sel => {
+      if (sel.options[1]) sel.options[1].textContent = `${row.home || '主队'}胜`;
+      if (sel.options[3]) sel.options[3].textContent = `${row.away || '客队'}胜`;
+    });
+    updateSummary();
+  }
+
+  function calcStats(side) {
+    let correct = 0, wrong = 0, judged = 0;
+    for (const row of rows) {
+      const pick = row[side] || 'none';
+      const outcome = getOutcome(row);
+      if (pick === 'none' || !outcome) continue;
+      judged++;
+      if (pick === outcome) correct++; else wrong++;
+    }
+    const none = rows.length - judged;
+    const pct = judged ? (correct / judged * 100) : 0;
+    return {correct, wrong, judged, none, pct};
+  }
+
+  function updateSummary() {
+    const b = calcStats('bro');
+    const d = calcStats('di');
+    document.getElementById('broRate').textContent = `${b.correct} / ${b.judged}`;
+    document.getElementById('broPct').textContent = `(${b.pct.toFixed(1)}%)`;
+    document.getElementById('broCorrect').textContent = b.correct;
+    document.getElementById('broWrong').textContent = b.wrong;
+    document.getElementById('broNone').textContent = b.none;
+
+    document.getElementById('diRate').textContent = `${d.correct} / ${d.judged}`;
+    document.getElementById('diPct').textContent = `(${d.pct.toFixed(1)}%)`;
+    document.getElementById('diCorrect').textContent = d.correct;
+    document.getElementById('diWrong').textContent = d.wrong;
+    document.getElementById('diNone').textContent = d.none;
+  }
+
+  function addRow() {
+    rows.push({home:'', away:'', homeScore:'', awayScore:'', bro:'none', di:'none'});
+    saveRows();
+    render();
+    setTimeout(() => {
+      const last = rowsEl.lastElementChild;
+      if (last) {
+        last.scrollIntoView({behavior:'smooth', block:'center'});
+        const input = last.querySelector('.team-input');
+        if (input) input.focus();
+      }
+    }, 30);
+  }
+
+  async function exportPng() {
+    const board = document.getElementById('board');
+    document.body.classList.add('exporting');
+    try {
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      if (!window.html2canvas) {
+        alert('导出组件没有加载成功。请先联网打开一次本页面，或直接用系统截图。');
+        return;
+      }
+      const canvas = await html2canvas(board, {
+        backgroundColor: null,
+        scale: 2,
+        useCORS: true,
+        width: board.scrollWidth,
+        height: board.scrollHeight,
+        windowWidth: board.scrollWidth,
+        windowHeight: board.scrollHeight,
+        scrollX: 0,
+        scrollY: 0
+      });
+      const link = document.createElement('a');
+      link.download = `预测对战长图_${new Date().toISOString().slice(0,10)}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } finally {
+      document.body.classList.remove('exporting');
+    }
+  }
+
+  function exportJson() {
+    const blob = new Blob([JSON.stringify(rows, null, 2)], {type:'application/json'});
+    const link = document.createElement('a');
+    link.download = `预测数据备份_${new Date().toISOString().slice(0,10)}.json`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+  }
+
+  function importJson(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!Array.isArray(data)) throw new Error('JSON不是数组');
+        rows = data.map(r => ({
+          home: r.home || '',
+          away: r.away || '',
+          homeScore: r.homeScore ?? '',
+          awayScore: r.awayScore ?? '',
+          bro: r.bro || 'none',
+          di: r.di || 'none'
+        }));
+        saveRows();
+        render();
+      } catch (e) {
+        alert('导入失败：请选择由本工具导出的JSON文件。');
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+  }
+
+  document.getElementById('addRowBtn').addEventListener('click', addRow);
+  document.getElementById('previewBtn').addEventListener('click', () => {
+    document.body.classList.toggle('preview');
+    document.getElementById('previewBtn').textContent = document.body.classList.contains('preview') ? '返回编辑' : '预览模式';
+  });
+  document.getElementById('exportPngBtn').addEventListener('click', exportPng);
+  document.getElementById('exportJsonBtn').addEventListener('click', exportJson);
+  document.getElementById('importFile').addEventListener('change', e => importJson(e.target.files[0]));
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    if (!confirm('确定清空全部比赛吗？建议先备份JSON。')) return;
+    rows = [];
+    saveRows();
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
